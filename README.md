@@ -29,7 +29,22 @@ Go/GCC
     }
     ```
 
-- Run the code snippet: `POST /api/task`<br>Request Body:
+- Run the code snippet: `POST /api/task`
+
+    cURL:
+
+    ```sh
+    # dXNlcm5hbWU6cGFzc3dvcmQ=: base64(username:password)
+    curl -X POST \
+  'http://localhost:3000/api/task' \
+  -H 'Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=' \
+  -H 'Content-Type: application/json; charset=utf-8' \
+  -d '{
+   "content":"int main(){printf(\"Hello world!\");}",
+   "container":"gcc-latest"'
+    ```
+
+    Request Body:
 
     ```json
     {
