@@ -15,17 +15,34 @@ type DockerImage struct {
 
 var Runners map[string]DockerImage
 
+var resourceLimit = &ResourceLimit{
+	CPU: 30,
+	Mem: 50,
+}
+
 func init() {
 	Runners = map[string]DockerImage{
 		"golang-latest": {
-			Image:    "golang:alpine",
-			Target:   "/runner/main.go",
-			Template: `package main\nfunc main(){\nprint("hello world!")}`,
-			CMD:      []string{"sh", "-c", "set -x && cd /runner && go build -o main main.go && ./main"},
-			Limit: &ResourceLimit{
-				CPU: 10,
-				Mem: 50,
-			},
+			Image:  "golang:alpine",
+			Target: "/runner/main.go",
+			Template: `package main
+
+			func main() {
+				print("Hello world!\n")
+			}
+			`,
+			CMD:   []string{"sh", "-c", "set -x && cd /runner && go build -o main main.go && ./main"},
+			Limit: resourceLimit,
+		},
+		"gcc-latest": {
+			Image:  "frolvlad/alpine-gcc:latest",
+			Target: "/runner/main.c",
+			Template: `int main()
+			{ 
+				printf("Hell%d w%drld!\n",0,0);
+			}`,
+			CMD:   []string{"sh", "-c", "set -x && cd /runner && gcc -o main main.c && ./main"},
+			Limit: resourceLimit,
 		},
 	}
 }
