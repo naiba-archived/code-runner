@@ -8,7 +8,7 @@ Go/GCC
 
 ## API
 
-- List supported runners: `GET /api/runner`
+- List supported runners: `GET /api/list`
 
     ```json
     {
@@ -36,11 +36,11 @@ Go/GCC
     ```sh
     # dXNlcm5hbWU6cGFzc3dvcmQ=: base64(username:password)
     curl -X POST \
-  'http://localhost:3000/api/task' \
+  'http://localhost:3000/api/run' \
   -H 'Authorization: Basic dXNlcm5hbWU6cGFzc3dvcmQ=' \
   -H 'Content-Type: application/json; charset=utf-8' \
   -d '{
-   "content":"int main(){printf(\"Hello world!\");}",
+   "code":"int main(){printf(\"Hello world!\");}",
    "container":"gcc-latest"'
     ```
 
@@ -48,7 +48,7 @@ Go/GCC
 
     ```json
     {
-        "content":"package main\nfunc main() {print(\"hello world!\")}",
+        "code":"package main\nfunc main() {print(\"hello world!\")}",
         "container":"golang-latest"
     }
     ```

@@ -16,7 +16,7 @@ type DockerImage struct {
 var Runners map[string]DockerImage
 
 var resourceLimit = &ResourceLimit{
-	CPU: 30,
+	CPU: 50,
 	Mem: 50,
 }
 

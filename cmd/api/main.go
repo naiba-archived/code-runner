@@ -18,7 +18,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/basicauth"
-	"github.com/gofiber/fiber/v2/middleware/limiter"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
 	"github.com/naiba/code-runner/internal/apiio"
@@ -58,11 +58,8 @@ func main() {
 	app := fiber.New(fiber.Config{
 		ReadTimeout: time.Second * 5, // optimize for graceful shutdown
 	})
+	app.Use(logger.New())
 	app.Use(recover.New())
-	app.Use(limiter.New(limiter.Config{
-		Max:      3,
-		Duration: time.Second,
-	}))
 	app.Get("/", func(c *fiber.Ctx) error {
 		return c.SendString("Hello, World 👋!")
 	})
@@ -75,8 +72,8 @@ func main() {
 		api.Get("/", func(c *fiber.Ctx) error {
 			return c.SendString("It works!")
 		})
-		api.Get("/runner", handleRunner)
-		api.Post("/task", handleTask)
+		api.Get("/list", handleRunner)
+		api.Post("/run", handleRunCode)
 	}
 
 	go app.Listen(":3000")
@@ -102,8 +99,8 @@ func handleRunner(c *fiber.Ctx) error {
 	return c.JSON(model.Runners)
 }
 
-func handleTask(c *fiber.Ctx) error {
-	var task apiio.Task
+func handleRunCode(c *fiber.Ctx) error {
+	var task apiio.RunCodeRequest
 	if err := c.BodyParser(&task); err != nil {
 		return err
 	}
@@ -120,7 +117,7 @@ func handleTask(c *fiber.Ctx) error {
 	path += "/"
 
 	fileName := path + "data/temp/" + uuid.Generate().String()
-	err = ioutil.WriteFile(fileName, []byte(task.Content), os.FileMode(777))
+	err = ioutil.WriteFile(fileName, []byte(task.Code), os.FileMode(777))
 	if err != nil {
 		return err
 	}
