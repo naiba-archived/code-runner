@@ -22,25 +22,26 @@ var resourceLimit = &ResourceLimit{
 
 func init() {
 	Runners = map[string]DockerImage{
-		"golang-latest": {
+		"go:latest": {
 			Image:  "golang:alpine",
 			Target: "/runner/main.go",
 			Template: `package main
 
-			func main() {
-				print("Hello world!\n")
-			}
-			`,
+func main() {
+	print("Hello world!\n")
+}
+`,
 			CMD:   []string{"sh", "-c", "set -x && cd /runner && go build -o main main.go && ./main"},
 			Limit: resourceLimit,
 		},
-		"gcc-latest": {
+		"c:latest": {
 			Image:  "frolvlad/alpine-gcc:latest",
 			Target: "/runner/main.c",
 			Template: `int main()
-			{ 
-				printf("Hell%d w%drld!\n",0,0);
-			}`,
+{ 
+	printf("Hell%d w%drld!\n",0,0);
+}
+`,
 			CMD:   []string{"sh", "-c", "set -x && cd /runner && gcc -o main main.c && ./main"},
 			Limit: resourceLimit,
 		},
