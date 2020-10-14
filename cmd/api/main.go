@@ -110,11 +110,19 @@ func handleRunCode(c *fiber.Ctx) error {
 		return errors.New("Image not found")
 	}
 
-	fileName := conf.Temp + uuid.Generate().String()
-	if err := ioutil.WriteFile(fileName, []byte(task.Code), os.FileMode(777)); err != nil {
+	fileID := uuid.Generate().String()
+
+	path, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	path += "/"
+	localFilename := path + "data/temp/" + fileID
+	if err := ioutil.WriteFile(localFilename, []byte(task.Code), os.FileMode(777)); err != nil {
 		return err
 	}
 
+	fileName := conf.Temp + fileID
 	resp, err := cli.ContainerCreate(c.Context(), &container.Config{
 		Image: dockerImage.Image,
 		Cmd:   dockerImage.CMD,
