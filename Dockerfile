@@ -11,9 +11,8 @@ RUN apk --no-cache --no-progress add \
     ca-certificates \
     tzdata
 WORKDIR /coderunner
-COPY dist /coderunner/dist
 COPY --from=binarybuilder /coderunner/cmd/api/api ./api
 
 VOLUME ["/coderunner/data"]
-EXPOSE 8080
+EXPOSE 3000
 CMD ["/coderunner/api"]
