@@ -110,15 +110,8 @@ func handleRunCode(c *fiber.Ctx) error {
 		return errors.New("Image not found")
 	}
 
-	path, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-	path += "/"
-
-	fileName := path + "data/temp/" + uuid.Generate().String()
-	err = ioutil.WriteFile(fileName, []byte(task.Code), os.FileMode(777))
-	if err != nil {
+	fileName := conf.Temp + uuid.Generate().String()
+	if err := ioutil.WriteFile(fileName, []byte(task.Code), os.FileMode(777)); err != nil {
 		return err
 	}
 
