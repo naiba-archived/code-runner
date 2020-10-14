@@ -123,6 +123,14 @@ func handleRunCode(c *fiber.Ctx) error {
 	}
 
 	fileName := conf.Temp + fileID
+
+	var limit container.Resources
+	if conf.Limit {
+		limit = container.Resources{
+			NanoCPUs: dockerImage.Limit.CPU * 1000000,
+			Memory:   dockerImage.Limit.Mem * 1024 * 1024,
+		}
+	}
 	resp, err := cli.ContainerCreate(c.Context(), &container.Config{
 		Image: dockerImage.Image,
 		Cmd:   dockerImage.CMD,
@@ -136,10 +144,7 @@ func handleRunCode(c *fiber.Ctx) error {
 				Target: dockerImage.Target,
 			},
 		},
-		Resources: container.Resources{
-			NanoCPUs: dockerImage.Limit.CPU * 1000000,
-			Memory:   dockerImage.Limit.Mem * 1024 * 1024,
-		},
+		Resources: limit,
 	}, nil, "")
 	if err != nil {
 		return err
