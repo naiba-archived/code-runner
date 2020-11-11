@@ -13,5 +13,5 @@ jobs:
 
       - name: docker push
         run: |
-          docker build --no-cache -t docker.pkg.github.com/naiba/dockerfiles/coderunner .
-          docker push docker.pkg.github.com/naiba/dockerfiles/coderunner
+          docker build --no-cache -t docker.pkg.github.com/${{ github.repository }}/api .
+          docker push docker.pkg.github.com/${{ github.repository }}/api
