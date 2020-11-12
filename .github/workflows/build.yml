@@ -9,9 +9,9 @@ jobs:
       - uses: actions/checkout@master
 
       - name: Log into registry
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u ${{ github.actor }} --password-stdin
+        run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u ${{ github.repository_owner_owner }} --password-stdin
 
       - name: docker push
         run: |
-          docker build --no-cache -t docker.pkg.github.com/${{ github.repository }}/api .
-          docker push docker.pkg.github.com/${{ github.repository }}/api
+          docker build --no-cache -t ghcr.io/${{ github.repository_owner }}/code-runner .
+          docker push ghcr.io/${{ github.repository_owner }}/code-runner
