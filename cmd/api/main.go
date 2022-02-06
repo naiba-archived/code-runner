@@ -32,7 +32,7 @@ const execTimeout = time.Second * 10
 
 func init() {
 	var err error
-	cli, err = client.NewEnvClient()
+	cli, err = client.NewClientWithOpts(client.FromEnv)
 	if err != nil {
 		panic(err)
 	}
@@ -107,7 +107,7 @@ func handleRunCode(c *fiber.Ctx) error {
 
 	dockerImage, has := model.Runners[task.Container]
 	if !has {
-		return errors.New("Image not found")
+		return errors.New("image not found")
 	}
 
 	fileID := uuid.Generate().String()
@@ -118,7 +118,7 @@ func handleRunCode(c *fiber.Ctx) error {
 	}
 	path += "/"
 	localFilename := path + "data/temp/" + fileID
-	if err := ioutil.WriteFile(localFilename, []byte(task.Code), os.FileMode(777)); err != nil {
+	if err := ioutil.WriteFile(localFilename, []byte(task.Code), os.FileMode(0777)); err != nil {
 		return err
 	}
 
@@ -145,7 +145,7 @@ func handleRunCode(c *fiber.Ctx) error {
 			},
 		},
 		Resources: limit,
-	}, nil, "")
+	}, nil, nil, "")
 	if err != nil {
 		return err
 	}
@@ -167,19 +167,21 @@ func handleRunCode(c *fiber.Ctx) error {
 		return err
 	}
 
-	errChan := make(chan error)
+	errChan := make(<-chan error)
+	waitBody := make(<-chan container.ContainerWaitOKBody)
 	timeout := time.NewTimer(execTimeout)
 
-	var exitCode int64
 	go func() {
-		exitCode, err = cli.ContainerWait(c.Context(), resp.ID)
-		errChan <- err
+		waitBody, errChan = cli.ContainerWait(c.Context(), resp.ID, container.WaitConditionNotRunning)
 	}()
 
 	var errExec error
+	var exitBody container.ContainerWaitOKBody
 	select {
 	case errC := <-errChan:
 		errExec = errC
+	case body := <-waitBody:
+		exitBody = body
 	case <-timeout.C:
 		errExec = errors.New("execute timeout")
 	}
@@ -202,7 +204,7 @@ func handleRunCode(c *fiber.Ctx) error {
 	}
 
 	var status int
-	if exitCode == 0 {
+	if exitBody.StatusCode == 0 {
 		status = 1
 	}
 
