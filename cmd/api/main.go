@@ -169,13 +169,9 @@ func handleRunCode(c *fiber.Ctx) error {
 		return err
 	}
 
-	errChan := make(<-chan error)
-	waitBody := make(<-chan container.ContainerWaitOKBody)
 	timeout := time.NewTimer(execTimeout)
 
-	go func() {
-		waitBody, errChan = cli.ContainerWait(c.Context(), resp.ID, container.WaitConditionNotRunning)
-	}()
+	waitBody, errChan := cli.ContainerWait(c.Context(), resp.ID, container.WaitConditionNotRunning)
 
 	var errExec error
 	var exitBody container.ContainerWaitOKBody
@@ -189,6 +185,8 @@ func handleRunCode(c *fiber.Ctx) error {
 	case <-timeout.C:
 		errExec = errors.New("execute timeout")
 	}
+
+	log.Printf("exec %s %+v %+v", fileName, errExec, exitBody)
 
 	if errExec != nil {
 		return errExec
@@ -212,10 +210,8 @@ func handleRunCode(c *fiber.Ctx) error {
 		status = 1
 	}
 
-	c.JSON(map[string]interface{}{
+	return c.JSON(map[string]interface{}{
 		"code": status,
 		"out":  string(outLog),
 	})
-
-	return nil
 }
