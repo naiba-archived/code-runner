@@ -28,7 +28,7 @@ import (
 var conf *model.Config
 var cli *client.Client
 
-const execTimeout = time.Second * 30
+const execTimeout = time.Second * 60
 
 func init() {
 	var err error
@@ -127,7 +127,7 @@ func handleRunCode(c *fiber.Ctx) error {
 	var limit container.Resources
 	if conf.Limit {
 		limit = container.Resources{
-			NanoCPUs: dockerImage.Limit.CPU * 1000000,
+			NanoCPUs: dockerImage.Limit.CPU * 10000000,
 			Memory:   dockerImage.Limit.Mem * 1024 * 1024,
 		}
 	}
@@ -150,7 +150,10 @@ func handleRunCode(c *fiber.Ctx) error {
 		return err
 	}
 
+	log.Println("exec", fileName, "in")
 	defer func() {
+		log.Println("exec", fileName, "exit")
+		os.Remove(fileName)
 		if err := cli.ContainerStop(c.Context(), resp.ID, nil); err != nil {
 			panic(err)
 		}
@@ -160,7 +163,6 @@ func handleRunCode(c *fiber.Ctx) error {
 		}); err != nil {
 			panic(err)
 		}
-		os.Remove(fileName)
 	}()
 
 	if err := cli.ContainerStart(c.Context(), resp.ID, types.ContainerStartOptions{}); err != nil {

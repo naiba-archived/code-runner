@@ -1,7 +1,7 @@
 package model
 
 type ResourceLimit struct {
-	CPU int64 `json:"cpu,omitempty"` // 0.0001 * CPU of cpu
+	CPU int64 `json:"cpu,omitempty"` // 0.01 * CPU of cpu
 	Mem int64 `json:"mem,omitempty"` // mb
 }
 
