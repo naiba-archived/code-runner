@@ -28,7 +28,7 @@ import (
 var conf *model.Config
 var cli *client.Client
 
-const execTimeout = time.Second * 10
+const execTimeout = time.Second * 30
 
 func init() {
 	var err error
@@ -179,8 +179,10 @@ func handleRunCode(c *fiber.Ctx) error {
 	var exitBody container.ContainerWaitOKBody
 	select {
 	case errC := <-errChan:
+		timeout.Stop()
 		errExec = errC
 	case body := <-waitBody:
+		timeout.Stop()
 		exitBody = body
 	case <-timeout.C:
 		errExec = errors.New("execute timeout")
