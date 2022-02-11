@@ -153,7 +153,7 @@ func handleRunCode(c *fiber.Ctx) error {
 	log.Println("exec", fileName, "in")
 	defer func() {
 		log.Println("exec", fileName, "exit")
-		os.Remove(fileName)
+		os.Remove(localFilename)
 		if err := cli.ContainerStop(c.Context(), resp.ID, nil); err != nil {
 			panic(err)
 		}
