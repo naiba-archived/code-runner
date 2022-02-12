@@ -3,7 +3,7 @@ module github.com/naiba/code-runner
 go 1.17
 
 require (
-	github.com/docker/distribution v2.7.1+incompatible
+	github.com/docker/distribution v2.8.0+incompatible
 	github.com/docker/docker v20.10.12+incompatible
 	github.com/gofiber/fiber/v2 v2.26.0
 )
