@@ -4,11 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io/ioutil"
+	"io"
 	"log"
 	"os"
 	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/docker/distribution/uuid"
@@ -20,8 +19,10 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/basicauth"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/samber/lo"
 
 	"github.com/naiba/code-runner/internal/apiio"
+	"github.com/naiba/code-runner/internal/global"
 	"github.com/naiba/code-runner/internal/model"
 )
 
@@ -37,7 +38,7 @@ func init() {
 		panic(err)
 	}
 	var innerConf model.Config
-	data, err := ioutil.ReadFile("data/config.json")
+	data, err := os.ReadFile("data/config.json")
 	if err != nil {
 		panic(err)
 	}
@@ -76,23 +77,16 @@ func main() {
 		api.Post("/run", handleRunCode)
 	}
 
-	go app.Listen(":3000")
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	go func() {
+		<-c
+		log.Println("Shutdown Server ...")
+		global.CancelGlobal()
+		app.Shutdown()
+	}()
 
-	// Wait for interrupt signal to gracefully shutdown the server with
-	// a timeout of 5 seconds.
-	quit := make(chan os.Signal, 1)
-	// kill (no param) default send syscall.SIGTERM
-	// kill -2 is syscall.SIGINT
-	// kill -9 is syscall.SIGKILL but can't be catch, so don't need add it
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-	log.Println("Shutdown Server ...")
-
-	if err := app.Shutdown(); err != nil {
-		log.Fatal("Server Shutdown: ", err)
-	}
-
-	log.Println("Server exiting")
+	app.Listen(":3000")
 }
 
 func handleRunner(c *fiber.Ctx) error {
@@ -118,9 +112,10 @@ func handleRunCode(c *fiber.Ctx) error {
 	}
 	path += "/"
 	localFilename := path + "data/temp/" + fileID
-	if err := ioutil.WriteFile(localFilename, []byte(task.Code), os.FileMode(0777)); err != nil {
+	if err := os.WriteFile(localFilename, []byte(task.Code), os.FileMode(0777)); err != nil {
 		return err
 	}
+	defer os.Remove(localFilename)
 
 	fileName := conf.Temp + fileID
 
@@ -131,7 +126,8 @@ func handleRunCode(c *fiber.Ctx) error {
 			Memory:   dockerImage.Limit.Mem * 1024 * 1024,
 		}
 	}
-	resp, err := cli.ContainerCreate(c.Context(), &container.Config{
+
+	resp, err := cli.ContainerCreate(global.Context, &container.Config{
 		Image: dockerImage.Image,
 		Cmd:   dockerImage.CMD,
 		Tty:   false,
@@ -153,55 +149,19 @@ func handleRunCode(c *fiber.Ctx) error {
 	log.Println("exec", fileName, "in")
 	defer func() {
 		log.Println("exec", fileName, "exit")
-		os.Remove(localFilename)
-		if err := cli.ContainerStop(c.Context(), resp.ID, nil); err != nil {
-			panic(err)
-		}
-		if err := cli.ContainerRemove(c.Context(), resp.ID, types.ContainerRemoveOptions{
+		cli.ContainerStop(global.Context, resp.ID, nil)
+		cli.ContainerRemove(global.Context, resp.ID, types.ContainerRemoveOptions{
 			RemoveVolumes: true,
 			Force:         true,
-		}); err != nil {
-			panic(err)
-		}
+		})
 	}()
 
-	if err := cli.ContainerStart(c.Context(), resp.ID, types.ContainerStartOptions{}); err != nil {
+	if err := cli.ContainerStart(global.Context, resp.ID, types.ContainerStartOptions{}); err != nil {
 		return err
 	}
 
-	timeout := time.NewTimer(execTimeout)
-
-	waitBody, errChan := cli.ContainerWait(c.Context(), resp.ID, container.WaitConditionNotRunning)
-
-	var errExec error
-	var exitBody container.ContainerWaitOKBody
-	select {
-	case errC := <-errChan:
-		timeout.Stop()
-		errExec = errC
-	case body := <-waitBody:
-		timeout.Stop()
-		exitBody = body
-	case <-timeout.C:
-		errExec = errors.New("execute timeout")
-	}
-
-	log.Printf("exec %s %+v %+v", fileName, errExec, exitBody)
-
-	if errExec != nil {
-		return errExec
-	}
-
-	out, err := cli.ContainerLogs(c.Context(), resp.ID, types.ContainerLogsOptions{
-		ShowStdout: true,
-		ShowStderr: true,
-	})
-	if err != nil {
-		return err
-	}
-
-	outLog, err := ioutil.ReadAll(out)
-	if err != nil {
+	exitBody, outLog, err, ok := lo.TryOr3(func() (*container.ContainerWaitOKBody, []byte, error, error) { return runCode(resp.ID) }, nil, nil, nil)
+	if !ok {
 		return err
 	}
 
@@ -214,4 +174,39 @@ func handleRunCode(c *fiber.Ctx) error {
 		"code": status,
 		"out":  string(outLog),
 	})
+}
+
+func runCode(containerId string) (*container.ContainerWaitOKBody, []byte, error, error) {
+	var err error
+	var exitBody container.ContainerWaitOKBody
+	var outLog []byte
+
+	timeout := time.NewTimer(execTimeout)
+	waitBody, errChan := cli.ContainerWait(global.Context, containerId, container.WaitConditionNotRunning)
+
+	select {
+	case errC := <-errChan:
+		timeout.Stop()
+		err = errC
+	case body := <-waitBody:
+		timeout.Stop()
+		exitBody = body
+	case <-timeout.C:
+		err = errors.New("execute timeout")
+	}
+
+	if err != nil {
+		return &exitBody, outLog, err, err
+	}
+
+	out, err := cli.ContainerLogs(global.Context, containerId, types.ContainerLogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+	})
+	if err != nil {
+		return &exitBody, outLog, err, err
+	}
+
+	outLog, err = io.ReadAll(out)
+	return &exitBody, outLog, err, err
 }
