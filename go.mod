@@ -3,7 +3,7 @@ module github.com/naiba/code-runner
 go 1.19
 
 require (
-	github.com/docker/distribution v2.8.1+incompatible
+	github.com/docker/distribution v2.8.2+incompatible
 	github.com/docker/docker v20.10.24+incompatible
 	github.com/gofiber/fiber/v2 v2.39.0
 	github.com/samber/lo v1.33.0
