@@ -149,7 +149,10 @@ func handleRunCode(c *fiber.Ctx) error {
 	log.Println("exec", fileName, "in")
 	defer func() {
 		log.Println("exec", fileName, "exit")
-		cli.ContainerStop(global.Context, resp.ID, nil)
+		timout := 0
+		cli.ContainerStop(global.Context, resp.ID, container.StopOptions{
+			Timeout: &timout,
+		})
 		cli.ContainerRemove(global.Context, resp.ID, types.ContainerRemoveOptions{
 			RemoveVolumes: true,
 			Force:         true,
@@ -160,7 +163,7 @@ func handleRunCode(c *fiber.Ctx) error {
 		return err
 	}
 
-	exitBody, outLog, err, ok := lo.TryOr3(func() (*container.ContainerWaitOKBody, []byte, error, error) { return runCode(resp.ID) }, nil, nil, nil)
+	exitBody, outLog, err, ok := lo.TryOr3(func() (*container.WaitResponse, []byte, error, error) { return runCode(resp.ID) }, nil, nil, nil)
 	if !ok {
 		return err
 	}
@@ -176,21 +179,21 @@ func handleRunCode(c *fiber.Ctx) error {
 	})
 }
 
-func runCode(containerId string) (*container.ContainerWaitOKBody, []byte, error, error) {
+func runCode(containerId string) (*container.WaitResponse, []byte, error, error) {
 	var err error
-	var exitBody container.ContainerWaitOKBody
+	var exitBody container.WaitResponse
 	var outLog []byte
 
 	timeout := time.NewTimer(execTimeout)
-	waitBody, errChan := cli.ContainerWait(global.Context, containerId, container.WaitConditionNotRunning)
+	waitResponse, errChan := cli.ContainerWait(global.Context, containerId, container.WaitConditionNotRunning)
 
 	select {
 	case errC := <-errChan:
 		timeout.Stop()
 		err = errC
-	case body := <-waitBody:
+	case resp := <-waitResponse:
 		timeout.Stop()
-		exitBody = body
+		exitBody = resp
 	case <-timeout.C:
 		err = errors.New("execute timeout")
 	}
